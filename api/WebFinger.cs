@@ -11,10 +11,10 @@ using System.IO;
 
 namespace O11y.Social
 {
-    public static class WebFinger
+    public class WebFinger
     {
         [FunctionName("WebFinger")]
-        public static async Task<IActionResult> Run(
+        public async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = "webfinger")] HttpRequest req,
             ILogger log, ExecutionContext context)
         {
