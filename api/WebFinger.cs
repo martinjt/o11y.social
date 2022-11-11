@@ -8,9 +8,6 @@ using System.Text.Json;
 using System.Text.Encodings.Web;
 using System.Diagnostics;
 using System.IO;
-using O11y.Social;
-using System;
-using System.Reflection;
 
 namespace O11y.Social
 {
@@ -28,25 +25,18 @@ namespace O11y.Social
 
             var username = account.Replace("@o11y.social", "");
 
-            if (!File.Exists(Path.Combine(context.FunctionAppDirectory, "profiles", $"{username}.json")))
+            var profilePath = Path.Combine(context.FunctionAppDirectory, "profiles", $"{username}.json");
+
+            if (!File.Exists(profilePath))
                 return new NotFoundObjectResult(new {
-                    CurrentDir = Directory.GetCurrentDirectory(),
-                    WorkingDir = Environment.CurrentDirectory,
-                    DeployedDir = System.IO.Path.GetDirectoryName(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName),
-                    ExecutingFunctionDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location),
                     Username = username,
                     Account = account,
                     Message = "Account Not Found"
                 });
 
-            using var stream = new FileStream(Path.Combine("profiles",$"{username}.json"), FileMode.Open);
+            using var stream = new FileStream(profilePath, FileMode.Open);
 
             var profile = JsonSerializer.Deserialize<Profile>(stream);
-
-            log.LogInformation("C# HTTP trigger function processed a request.");
-
-            if (name != "acct:martindotnet@o11y.social")
-                return new NotFoundResult();
 
             return new ContentResult
             {
