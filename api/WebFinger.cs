@@ -9,6 +9,7 @@ using System.Text.Encodings.Web;
 using System.Diagnostics;
 using System.IO;
 using O11y.Social;
+using System;
 
 namespace O11y.Social
 {
@@ -28,6 +29,9 @@ namespace O11y.Social
 
             if (!File.Exists(Path.Combine("profiles",$"{username}.json")))
                 return new NotFoundObjectResult(new {
+                    CurrentDir = Directory.GetCurrentDirectory(),
+                    WorkingDir = Environment.CurrentDirectory,
+                    DeployedDir = System.IO.Path.GetDirectoryName(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName),
                     Username = username,
                     Account = account,
                     Message = "Account Not Found"
