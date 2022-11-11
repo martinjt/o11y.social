@@ -1,0 +1,11 @@
+{
+    "routes": [
+        {
+            "route": "/.well-known/webfinger*",
+            "rewrite": "/api/webfinger"
+        }
+    ],
+    "navigationFallback": {
+        "rewrite": "/index.html"
+    }
+}
