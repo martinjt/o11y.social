@@ -4,11 +4,11 @@ using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
-using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Encodings.Web;
 using System.Diagnostics;
-using System;
+using System.IO;
+using O11y.Social;
 
 namespace O11y.Social
 {
@@ -19,49 +19,40 @@ namespace O11y.Social
             [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = "webfinger")] HttpRequest req,
             ILogger log)
         {
-        string name = req.Query["resource"];
-        log.LogInformation(name);
-        log.LogInformation(req.ToString());
+            string name = req.Query["resource"];
 
-        Activity.Current?.SetTag("account.name", name);
-        log.LogInformation("C# HTTP trigger function processed a request.");
+            var account = name.Replace("acct:", "");
+            Activity.Current?.SetTag("account.name", account);
 
-        if (name != "acct:martindotnet@o11y.social")
-            return new NotFoundResult();
+            var username = account.Replace("@o11y.social", "");
 
-        return new ContentResult
-        {
-            Content = JsonSerializer.Serialize(new ActivityPubAccount
+            if (!File.Exists(Path.Combine("profiles",$"{username}.json")))
+                return new NotFoundObjectResult(new {
+                    Username = username,
+                    Account = account,
+                    Message = "Account Not Found"
+                });
+
+            using var stream = new FileStream(Path.Combine("profiles",$"{username}.json"), FileMode.Open);
+
+            var profile = JsonSerializer.Deserialize<Profile>(stream);
+
+            log.LogInformation("C# HTTP trigger function processed a request.");
+
+            if (name != "acct:martindotnet@o11y.social")
+                return new NotFoundResult();
+
+            return new ContentResult
             {
-                Subject = "acct:Martindotnet@hachyderm.io",
-                Aliases = new List<string> {
-                "https://hachyderm.io/@Martindotnet",
-                "https://hachyderm.io/users/Martindotnet"
-            },
-                Links = new List<Link> {
-                new Link {
-                    Relation = "http://webfinger.net/rel/profile-page",
-                    Type = "text/html",
-                    Href = "https://hachyderm.io/@Martindotnet"
-                },
-                new Link {
-                    Relation = "self",
-                    Type = "application/activity+json",
-                    Href = "https://hachyderm.io/users/Martindotnet"
-                },
-                new Link {
-                    Relation = "http://ostatus.org/schema/1.0/subscribe",
-                    Template = "https://hachyderm.io/authorize_interaction?uri={uri}"
-                }
-            }
-            }, new JsonSerializerOptions
-            {
-                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
-                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-                WriteIndented = true
-            }),
-            ContentType = "application/json"
-        };
+                Content = JsonSerializer.Serialize(profile.ToActivityPubAccount()
+                    , new JsonSerializerOptions
+                {
+                    DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+                    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                    WriteIndented = true
+                }),
+                ContentType = "application/json"
+            };
         }
     }
 }

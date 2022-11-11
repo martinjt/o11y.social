@@ -17,7 +17,7 @@ public class Link
     public string Template { get; set; }
 }
 
-public class ActivityPubAccount
+public record ActivityPubAccount
 {
     [JsonPropertyName("subject")]
     public string Subject { get; set; }
