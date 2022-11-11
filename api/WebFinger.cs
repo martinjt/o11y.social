@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.IO;
 using O11y.Social;
 using System;
+using System.Reflection;
 
 namespace O11y.Social
 {
@@ -18,7 +19,7 @@ namespace O11y.Social
         [FunctionName("WebFinger")]
         public static async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = "webfinger")] HttpRequest req,
-            ILogger log)
+            ILogger log, ExecutionContext context)
         {
             string name = req.Query["resource"];
 
@@ -27,11 +28,12 @@ namespace O11y.Social
 
             var username = account.Replace("@o11y.social", "");
 
-            if (!File.Exists(Path.Combine("profiles",$"{username}.json")))
+            if (!File.Exists(Path.Combine(context.FunctionAppDirectory, "profiles", $"{username}.json")))
                 return new NotFoundObjectResult(new {
                     CurrentDir = Directory.GetCurrentDirectory(),
                     WorkingDir = Environment.CurrentDirectory,
                     DeployedDir = System.IO.Path.GetDirectoryName(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName),
+                    ExecutingFunctionDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location),
                     Username = username,
                     Account = account,
                     Message = "Account Not Found"
