@@ -9,46 +9,46 @@ using System.Text.Encodings.Web;
 using System.Diagnostics;
 using System.IO;
 
-namespace O11y.Social
+namespace O11y.Social;
+public class WebFinger
 {
-    public class WebFinger
+    [FunctionName("WebFinger")]
+    public async Task<IActionResult> Run(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = "webfinger")] HttpRequest req,
+        ILogger log, ExecutionContext context)
     {
-        [FunctionName("WebFinger")]
-        public async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = "webfinger")] HttpRequest req,
-            ILogger log, ExecutionContext context)
-        {
-            string name = req.Query["resource"];
+        string name = req.Query["resource"];
 
-            var account = name.Replace("acct:", "");
-            Activity.Current?.SetTag("account.name", account);
+        var account = name.Replace("acct:", "");
+        Activity.Current?.SetTag("account.name", account);
 
-            var username = account.Replace("@o11y.social", "");
+        var username = account.Replace("@o11y.social", "");
 
-            var profilePath = Path.Combine(context.FunctionAppDirectory, "profiles", $"{username}.json");
+        var profilePath = Path.Combine(context.FunctionAppDirectory, "profiles", $"{username}.json");
 
-            if (!File.Exists(profilePath))
-                return new NotFoundObjectResult(new {
-                    Username = username,
-                    Account = account,
-                    Message = "Account Not Found"
-                });
-
-            using var stream = new FileStream(profilePath, FileMode.Open);
-
-            var profile = JsonSerializer.Deserialize<Profile>(stream);
-
-            return new ContentResult
+        if (!File.Exists(profilePath))
+            return new NotFoundObjectResult(new
             {
-                Content = JsonSerializer.Serialize(profile.ToActivityPubAccount()
-                    , new JsonSerializerOptions
+                Username = username,
+                Account = account,
+                Message = "Account Not Found"
+            });
+
+        using var stream = new FileStream(profilePath, FileMode.Open);
+
+        var profile = JsonSerializer.Deserialize<Profile>(stream);
+
+        return new ContentResult
+        {
+            Content = JsonSerializer.Serialize(profile.ToActivityPubAccount()
+                , new JsonSerializerOptions
                 {
                     DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
                     Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
                     WriteIndented = true
                 }),
-                ContentType = "application/json"
-            };
-        }
+            ContentType = "application/json"
+        };
     }
 }
+
