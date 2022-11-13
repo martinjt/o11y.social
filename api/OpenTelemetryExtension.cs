@@ -1,22 +1,17 @@
 using System;
 using System.Collections.Generic;
-using Microsoft.Azure.Functions.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
-using O11y.Social;
 using OpenTelemetry;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
-[assembly: FunctionsStartup(typeof(Startup))]
-
 namespace O11y.Social;
 
-public class Startup : FunctionsStartup
+public static class OpenTelemetryExtension
 {
-    public override void Configure(IFunctionsHostBuilder builder)
+    public static IServiceCollection SetupOpenTelemetry(this IServiceCollection services)
     {
         var honeycombApiKey = Environment.GetEnvironmentVariable("HONEYCOMB_API_KEY");
-        Console.WriteLine($"Honeycomb API Key: {honeycombApiKey}");
         if (!string.IsNullOrEmpty(honeycombApiKey))
         {
             var tracerProvider = Sdk.CreateTracerProviderBuilder()
@@ -33,7 +28,8 @@ public class Startup : FunctionsStartup
                 .AddAspNetCoreInstrumentation()
                 .SetSampler(new AlwaysOnSampler())
                 .Build();
-            builder.Services.AddSingleton(tracerProvider);
+            services.AddSingleton(tracerProvider);
         }
+        return services;
     }
 }

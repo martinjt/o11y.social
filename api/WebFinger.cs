@@ -1,54 +1,53 @@
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Extensions.Http;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
-using System.Text.Json;
-using System.Text.Encodings.Web;
 using System.Diagnostics;
 using System.IO;
+using System.Net;
+using System.Text.Json;
+using System.Web;
+using Microsoft.Azure.Functions.Worker;
+using Microsoft.Azure.Functions.Worker.Http;
+using Microsoft.Extensions.Hosting;
 
 namespace O11y.Social;
 public class WebFinger
 {
-    [FunctionName("WebFinger")]
-    public async Task<IActionResult> Run(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = "webfinger")] HttpRequest req,
-        ILogger log, ExecutionContext context)
-    {
-        string name = req.Query["resource"];
+    private readonly IHostEnvironment _hostEnvironment;
 
-        var account = name.Replace("acct:", "");
+    public WebFinger(IHostEnvironment hostEnvironment)
+    {
+        _hostEnvironment = hostEnvironment;
+    }
+
+    [Function("WebFinger")]
+    public HttpResponseData Run([HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "webfinger")] HttpRequestData req)
+    {
+        var queryString = HttpUtility.ParseQueryString(req.Url.Query);
+
+        var name = queryString["resource"];
+
+        var account = name?.Replace("acct:", "");
         Activity.Current?.SetTag("account.name", account);
 
-        var username = account.Replace("@o11y.social", "");
+        var username = account?.Replace("@o11y.social", "");
 
-        var profilePath = Path.Combine(context.FunctionAppDirectory, "profiles", $"{username}.json");
+        var profilePath = Path.Combine(_hostEnvironment.ContentRootPath, "profiles", $"{username}.json");
 
         if (!File.Exists(profilePath))
-            return new NotFoundObjectResult(new
+        {
+            var response = req.CreateResponse(HttpStatusCode.NotFound);
+            response.WriteAsJsonAsync(new
             {
-                Username = username,
-                Account = account,
-                Message = "Account Not Found"
+                Account = account ?? "Empty Account",
+                Message = "couldn't find account"
             });
+
+            return response;
+        }
 
         using var stream = new FileStream(profilePath, FileMode.Open);
 
         var profile = JsonSerializer.Deserialize<Profile>(stream);
-
-        return new ContentResult
-        {
-            Content = JsonSerializer.Serialize(profile.ToActivityPubAccount()
-                , new JsonSerializerOptions
-                {
-                    DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
-                    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-                    WriteIndented = true
-                }),
-            ContentType = "application/json"
-        };
+        var foundResponse = req.CreateResponse(HttpStatusCode.OK);
+        foundResponse.WriteAsJsonAsync(profile.ToActivityPubAccount());
+        return foundResponse;
     }
 }
-
